@@ -1,0 +1,91 @@
+<!DOCTYPE html> 
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Choropleth Map</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="flex flex-col justify-center items-center h-screen">
+  <h1 id="title" class="text-3xl font-bold text-center mb-4">US Choropleth Map</h1>
+  <p id="description" class="text-lg text-center mb-4">Education Data by County</p>
+
+  <div id="legend" class="flex space-x-4 mb-6">
+    <div class="legend-item flex items-center justify-between bg-purple-100 w-24 h-5 px-2">
+      <span>0%</span>
+      <span>15%</span>
+    </div>
+    <div class="legend-item flex items-center justify-between bg-blue-200 w-24 h-5 px-2">
+      <span>15%</span>
+      <span>30%</span>
+    </div>
+    <div class="legend-item flex items-center justify-between bg-blue-400 w-24 h-5 px-2">
+      <span>30%</span>
+      <span>45%</span>
+    </div>
+    <div class="legend-item flex items-center justify-between bg-blue-700 w-24 h-5 px-2 text-white">
+      <span>45%</span>
+      <span>60%</span>
+    </div>
+  </div>
+
+  <div id="tooltip" class="absolute bg-gray-100 p-2 hidden pointer-events-none text-sm"></div>
+
+  <script src="https://d3js.org/d3.v5.min.js"></script>
+  <script src="https://d3js.org/topojson.v3.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      // Fetch data
+      Promise.all([
+        fetch('https://cdn.freecodecamp.org/testable-projects-fcc/data/choropleth_map/for_user_education.json')
+          .then(response => response.json()),
+        fetch('https://cdn.freecodecamp.org/testable-projects-fcc/data/choropleth_map/counties.json')
+          .then(response => response.json())
+      ]).then(([educationData, countyData]) => {
+        // Map education data to county FIPS
+        const educationMap = {};
+        educationData.forEach(d => {
+          educationMap[d.fips] = {
+            education: d.bachelorsOrHigher,
+            area_name: d.area_name
+          };
+        });
+
+        // Create SVG container
+        const svg = d3.select('body')
+          .append('svg')
+          .attr('width', 960)
+          .attr('height', 600);
+
+        // Draw counties
+        svg.selectAll('.county')
+          .data(topojson.feature(countyData, countyData.objects.counties).features)
+          .enter()
+          .append('path')
+          .attr('class', 'county')
+          .attr('data-fips', d => d.id)
+          .attr('data-education', d => educationMap[d.id]?.education || 0) // Default to 0 if data is missing
+          .attr('fill', d => {
+            const education = educationMap[d.id]?.education || 0;
+            return education <= 15 ? '#f1eef6' :
+                   education <= 30 ? '#bdc9e1' :
+                   education <= 45 ? '#74a9cf' :
+                                    '#0570b0';
+          })
+          .attr('d', d3.geoPath())
+          .on('mouseover', function (d) {
+            const [x, y] = d3.mouse(this);
+            d3.select('#tooltip')
+              .html(`County: ${educationMap[d.id]?.area_name || 'Unknown'}<br>Education: ${educationMap[d.id]?.education || 0}%`)
+              .style('display', 'block')
+              .style('left', (x + 10) + 'px')
+              .style('top', (y + 10) + 'px');
+          })
+          .on('mouseout', function () {
+            d3.select('#tooltip').style('display', 'none');
+          });
+      });
+    });
+  </script>
+</body>
+</html>
